@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Group 005 - California Air Pollution Dashboard
 
 import streamlit as st
@@ -7,6 +6,7 @@ import matplotlib.pyplot as plt
 import os
 
 # Title and description
+st.set_page_config(page_title="Group-005", layout="wide")
 st.title("Group-005")
 
 st.markdown("""
@@ -18,7 +18,7 @@ Data includes daily readings of various pollutants like **CO, NO₂, Ozone, PM2.
 You can compare pollutants by year, visualize monthly averages, and explore proportions via bar and pie charts.
 """)
 
-# Define file paths relative to this script
+# Base directory and file mappings
 base_path = os.path.dirname(__file__)
 file_names = {
     "2024": os.path.join(base_path, "California2024.xlsx"),
@@ -29,7 +29,7 @@ file_names = {
     "2019": os.path.join(base_path, "California2019.xlsx"),
 }
 
-# Pollutant measurement descriptions
+# Measurement unit descriptions
 measurement_info = {
     "CO": "Measured in parts per million (ppm)",
     "Pb": "Measured in micrograms per cubic meter (µg/m³)",
@@ -38,35 +38,31 @@ measurement_info = {
     "PM2.5": "Measured in micrograms per cubic meter (µg/m³)",
 }
 
-# Function to load sheet data
+# Function to load Excel sheet
 def load_data(file_path, sheet_name):
     try:
         df = pd.read_excel(file_path, sheet_name=sheet_name)
         measurement_col = df.columns[1]
-
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-        df = df.dropna(subset=['Date'])
+        df.dropna(subset=['Date'], inplace=True)
         df['Month'] = df['Date'].dt.month
-        df['Day'] = df['Date'].dt.day
         df['Year'] = df['Date'].dt.year
         return df, measurement_col
     except Exception as e:
         st.error(f"Error loading {sheet_name} from {os.path.basename(file_path)}: {e}")
         return pd.DataFrame(), None
 
-# Sidebar: pollutant selection
+# Selection interface on main page
 pollutants = list(measurement_info.keys())
-selected_sheet = st.sidebar.selectbox("Select Pollutant Sheet", pollutants)
-st.sidebar.write(f"**Measurement Info:** {measurement_info[selected_sheet]}")
+selected_sheet = st.selectbox("Select Pollutant Sheet", pollutants)
+st.markdown(f"**Measurement Info:** {measurement_info[selected_sheet]}")
 
-# Sidebar: data type (raw measurement or AQI)
-measurement_options = {"Measurement": "Measurement (column B)"}
+measurement_options = ["Measurement"]
 if selected_sheet != "Pb":
-    measurement_options["AQI"] = "Daily AQI Value"
-selected_measurement = st.sidebar.radio("Select Data Type", list(measurement_options.keys()))
+    measurement_options.append("AQI")
+selected_measurement = st.radio("Select Data Type", measurement_options)
 
-# Sidebar: year selection
-selected_years = st.sidebar.multiselect("Select Years", list(file_names.keys()), default=list(file_names.keys()))
+selected_years = st.multiselect("Select Years", list(file_names.keys()), default=list(file_names.keys()))
 
 # Load and combine selected data
 dataframes = []
@@ -90,7 +86,7 @@ if dataframes:
     else:
         grouped_data = all_data.groupby(['Year', 'Month'])[measurement_column_name].mean().reset_index()
 
-        # Line chart: year-wise monthly average
+        # Line Chart
         st.subheader(f"{selected_sheet} Monthly Averages (Line Plot)")
         fig, ax = plt.subplots(figsize=(10, 6))
         for year in grouped_data['Year'].unique():
@@ -105,7 +101,7 @@ if dataframes:
                             'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'])
         st.pyplot(fig)
 
-        # Bar and Pie charts (only for Measurement, not AQI)
+        # Bar and Pie charts
         if selected_measurement == "Measurement":
             bar_data = all_data.groupby('Year')[measurement_column_name].sum().reset_index()
 
